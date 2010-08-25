@@ -19,12 +19,15 @@ includes:
  * notification messages via email (configurable by user)
  * notification messages via feed
 
-How to use
-----------
+How to use this fork
+----------------------
 
 * Add `'notification'` to your `INSTALLED_APPS` setting
-* ...
+* Add `NOTIFICATION_CONTEXTS` to your `settings.py`, it's value must be a dictionary of the form `{context: app.model}` where `context`refers to the label you will apply to the given context.
+* Create the template `notification/context/<label>.html` for each context in the aforementioned dictionary. It will receive the types of notifications you registered and a list of notices already formatted as html as context variables.
+* If you'd like automatic reporting when a model is saved, add the setting `AUTO_NOTIFY`, of the form `((path.to.model, path.to.callback), ...)` where each entry is a tuple of models and the functions that should be called when an instance of that model is saved. Here you can pass `send` directly or a function you define that calls `send` to actually create the notices.
 
+After you follow the aforementioned steps, read the next section for the next steps on usage.
 
 Usage
 -----
