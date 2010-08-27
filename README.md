@@ -6,6 +6,11 @@ WTF? (why the fork?)
 
 Though this app is really cool for application-wide notifications, I needed it to not only filter by user, but also by *context* (like the group oriented approach of [the fridge](http://www.frid.ge/) ). So this fork adds that: the ability to see context specific notices for a user, where the context is described by a type and an Id: for example, if you have a group context with an id of 1, the notice feed for the current authenticated user would be: `/notices/group/1`.
 
+Also, now it supports notifications via wall posts to the user facebook profile if the `AUTH_PROFILE_MODULE` setting is set and
+used like outlined[here](http://docs.djangoproject.com/en/dev/topics/auth/#storing-additional-information-about-users). 
+When posting, the access token of the user must be stored in whatever model instance `user.get_profile()` returns as `facebook_access_token` or the attribute name specified by the `NOTIFICATION_FACEBOOK_ATTR` setting.
+
+
 About
 -----
 Many sites need to notify users when certain events have occurred and to allow
@@ -26,6 +31,7 @@ How to use this fork
 * Add `NOTIFICATION_CONTEXTS` to your `settings.py`, it's value must be a dictionary of the form `{context: app.model}` where `context`refers to the label you will apply to the given context.
 * Create the template `notification/context/<label>.html` for each context in the aforementioned dictionary. It will receive the types of notifications you registered and a list of notices already formatted as html as context variables.
 * If you'd like automatic reporting when a model is saved, add the setting `AUTO_NOTIFY`, of the form `((path.to.model, path.to.callback), ...)` where each entry is a tuple of models and the functions that should be called when an instance of that model is saved. Here you can pass `send` directly or a function you define that calls `send` to actually create the notices.
+* If you want to use the facebook notifications, create notices with a value of `3` for the `default` attribute and **provide a profile** for your users (more about that [in the django user auth documentation](http://docs.djangoproject.com/en/dev/topics/auth/#storing-additional-information-about-users). Your profile must store the user's access token either in the attribute `facebook_access_token` or in the one set by a `NOTIFICATION_FACEBOOK_ATTR` setting.
 
 After you follow the aforementioned steps, read the next section for the next steps on usage.
 
