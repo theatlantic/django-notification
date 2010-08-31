@@ -10,6 +10,16 @@ Also, now it supports notifications via wall posts to the user facebook profile 
 used like outlined[here](http://docs.djangoproject.com/en/dev/topics/auth/#storing-additional-information-about-users). 
 When posting, the access token of the user must be stored in whatever model instance `user.get_profile()` returns as `facebook_access_token` or the attribute name specified by the `NOTIFICATION_FACEBOOK_ATTR` setting.
 
+What does this fork have that the original didn't?
+--------------------------------------------------
+
+* __context specific notifications__ : say you have groups of users or different areas of the site, now you can have specific notifications for the users there (instead of the regular site-wide notifications) if you include the model instance representing the context in a call to `notification.send`, declare the context slug in a `NOTIFICATION_CONTEXTS` setting mapping to the app.model of the context.
+* __json feeds__ : now you can use `notification_json_feed_for_user` and `notification_context_json_feed_for_user` to get a JSON containing an array of all the notifications for the logged in user, system-wide and context-specific.
+* __automatic notification sending__ : if you add a `AUTO_NOTIFY` setting and map models to callbacks that call the `notification.send` function, `post_save` signals will be declared and connected for you.
+* __lazy rendering__ : if you add `NOTIFICATION_LAZY_RENDERING=True` to your `settings` (if not found, defaults to `False`), the context data needed to render a notification will be persisted in the database and used to render the notification everytime you display the notifications page. Note that, if you're one of those guys that like switching django versions like socks, this might break, as it depends on the `pickle` module [and the django guys warn about that](http://docs.djangoproject.com/en/dev/ref/models/querysets/#pickling-querysets).
+* __pagination__ : for the notification views, you can set `NOTIFICATIONS_PER_PAGE` to determine how many notifications you'd like to show (it defaults to 20). Remember to iterate over `notices.object_list` in your notification templates instead of just `notices`, because now it's paginated.
+* __a separate view for settings__ : now you have a view named `notification_notice_settings` to deal with the user preferences for notifications, instead of having it in the `notification_notices` view.
+* __facebook notifications__ : if you have [user profiles](http://docs.djangoproject.com/en/dev/topics/auth/#storing-additional-information-about-users) in your app and a way of getting and storing facebook access tokens in the users' profiles , notifications will be sent to the users as wall posts to their facebook.
 
 About
 -----
@@ -109,7 +119,7 @@ and `notification/friends_full.txt` might contain::
 The context variables are provided when sending the notification.
 
 
-###Sending Notification###
+###Sending Notifications###
 
 
 There are two different ways of sending out notifications. We have support
@@ -162,6 +172,42 @@ setting is meant to help control whether you want to queue any call to
 each option is set to `False` to honor the global setting which is `False`.
 This enables you to override on a per call basis whether it should call
 `send_now` or `queue`.
+
+###Displaying notifications###
+
+The urls for this app include `notification_context_notices` and `notification_notices` that correspond to views to show context and site-wide notifications, respectively; both of these return `notice_types` (the list of notice types, so you can use them as javascript filters or something) and `notices`, which is a paginator with the notifications for the current logged in user. An example template using these objects to display the notifications for a user would be:
+
+    {%load i18n humanize%}
+    <ul id="notices">
+        {%for notice in notices.object_list%}
+        <li class="notice {%if notice.is_unseen%}unseen{%endif%} {{notice.notice_type.label}}">
+            <div>
+                {#the notices already come as html#}
+                <p>{{notice|safe}}</p>
+                <span>{{notice.added|naturalday}}</span>
+            </div>
+        </li>
+        {%endfor%}
+     </ul>
+    <div class="pagination">
+        <span class="step-links">
+            {% if notices.has_previous %}
+                <a href="?page={{ notices.previous_page_number }}">{% trans "previous"%}</a>
+            {% endif %}
+
+            <span class="current">
+            {%if notices.paginator.num_pages%}
+                {%blocktrans with notices.number as n and notices.paginator.num_pages as N%}
+                    Page {{ n }} of {{ N }}.
+                {%endblocktrans%}
+            {%endif%}
+            </span>
+
+            {% if notices.has_next %}
+                <a href="?page={{ notices.next_page_number }}">{%trans "next"%}</a>
+            {% endif %}
+        </span>
+    </div>
 
 ####Optional notification support####
 
