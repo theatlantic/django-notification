@@ -90,7 +90,7 @@ def notice_settings(request):
     }
     
     if saved:
-        return redirect('notification.notice_settings')
+        return redirect('notification.views.notice_settings')
     else:
         return render_to_response("notification/notice_settings.html", {
                 "notice_types": notice_types, "notice_settings": notice_settings,},
@@ -192,4 +192,4 @@ def mark_all_seen(request):
     for notice in Notice.objects.notices_for(request.user, unseen=True):
         notice.unseen = False
         notice.save()
-    return redirect('notification.notices')
+    return redirect('notification.views.notices')
