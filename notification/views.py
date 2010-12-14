@@ -7,7 +7,7 @@ from django.contrib.syndication.views import feed
 from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
 from notification.feeds import NoticeUserFeed
-from notification.backends import NoticeBackends
+from notification import backends
 
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
@@ -54,21 +54,23 @@ def notice_settings(request):
             A list of all :model:`notification.NoticeType` objects.
         
         notice_settings
-            A dictionary containing ``column_headers`` for each ``NoticeBackend``
-            and ``rows`` containing a list of dictionaries: ``notice_type``, a
-            :model:`notification.NoticeType` object and ``cells``, a list of
-            tuples whose first value is suitable for use in forms and the second
-            value is ``True`` or ``False`` depending on a ``request.POST``
-            variable called ``form_label``, whose valid value is ``on``.
+            A dictionary containing ``column_headers`` for each
+            ``NotificationBackend`` and ``rows`` containing a list of
+            dictionaries: ``notice_type``, a :model:`notification.NoticeType`
+            object and ``cells``, a list of tuples whose first value is suitable
+            for use in forms and the second value is ``True`` or ``False``
+            depending on a ``request.POST`` variable called ``form_label``,
+            whose valid value is ``on``.
     """
     notice_types = NoticeType.objects.all()
     settings_table = []
     saved = False
     for notice_type in notice_types:
         settings_row = []
-        for medium_id, medium_display in NoticeBackends.mediums():
-            form_label = "%s_%s" % (notice_type.label, medium_id)
-            setting = get_notification_setting(request.user, notice_type, medium_id)
+        for backend in backends:
+            form_label = "%s_%s" % (notice_type.label, backend.slug)
+            setting, _ = NoticeSetting.objects.get_or_create(user=request.user,
+                    notice_type=notice_type, backend=backend)
             if request.method == "POST":
                 if request.POST.get(form_label) == "on":
                     if not setting.send:
@@ -84,8 +86,7 @@ def notice_settings(request):
         settings_table.append({"notice_type": notice_type, "cells": settings_row})
     
     notice_settings = {
-        "column_headers": [medium_display for medium_id, medium_display
-                in NoticeBackends.mediums()],
+        "column_headers": [backend.display_name for backend in backends],
         "rows": settings_table,
     }
     

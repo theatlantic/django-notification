@@ -24,7 +24,7 @@ from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext, get_language, activate
 
-from notification.backends import NoticeBackends
+from notification import backend_field_choices, backends
 
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 
@@ -48,37 +48,37 @@ class NoticeType(models.Model):
         verbose_name = _("notice type")
         verbose_name_plural = _("notice types")
 
+class NoticeSettingManager(models.Manager):
+    def get_or_create(self, user=None, notice_type=None, backend=None,
+            **kwargs):
+        try:
+            return NoticeSetting.objects.get(user=user,
+                    notice_type=notice_type,
+                    backend=backend.path()), False
+        except NoticeSetting.DoesNotExist:
+            default = backend.sensitivity <= notice_type.default
+            setting = NoticeSetting.objects.create(user=user,
+                    notice_type=notice_type, backend=backend.path(), send=default)
+            return setting, True
 
 class NoticeSetting(models.Model):
     """
     Indicates, for a given user, whether to send notifications
-    of a given type to a given medium.
+    of a given type to a given backend.
     """
 
     user = models.ForeignKey(User, verbose_name=_('user'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
-    medium = models.IntegerField(_('medium'), choices=NoticeBackends.mediums())
+    backend = models.CharField(_('backend'), max_length=128,
+            choices=backend_field_choices)
     send = models.BooleanField(_('send'))
+
+    objects = NoticeSettingManager()
 
     class Meta:
         verbose_name = _("notice setting")
         verbose_name_plural = _("notice settings")
-        unique_together = ("user", "notice_type", "medium")
-
-def get_notification_setting(user, notice_type, medium):
-    try:
-        return NoticeSetting.objects.get(user=user, notice_type=notice_type,
-                medium=medium)
-    except NoticeSetting.DoesNotExist:
-        default = (medium <= notice_type.default)
-        setting = NoticeSetting(user=user, notice_type=notice_type,
-                medium=medium, send=default)
-        setting.save()
-        return setting
-
-def should_send(user, notice_type, medium):
-    return user.is_active and get_notification_setting(
-            user, notice_type, medium).send
+        unique_together = ("user", "notice_type", "backend")
 
 
 class NoticeManager(models.Manager):
@@ -130,7 +130,6 @@ class NoticeManager(models.Manager):
         return self.notices_for(sender, **kwargs)
 
 class Notice(models.Model):
-
     recipient = models.ForeignKey(User, related_name='recieved_notices',
             verbose_name=_('recipient'))
     sender = models.ForeignKey(User, null=True, related_name='sent_notices',
@@ -163,6 +162,11 @@ class Notice(models.Model):
             self.unseen = False
             self.save()
         return unseen
+
+    def get_setting(self, backend):
+        setting, _ = NoticeSetting.objects.get_or_create(user=self.recipient,
+                notice_type=self.notice_type, backend=backend)
+        return setting
 
     class Meta:
         ordering = ["-added"]
@@ -310,9 +314,8 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
                 notice_type=notice_type,
                 on_site=on_site, sender=sender)
 
-        for medium, backend in NoticeBackends.backends():
-            if should_send(user, notice_type, medium):
-                backend().send(user, messages, context)
+        for backend in backends:
+            backend.send(notice, messages, context)
 
     # reset environment to original language
     activate(current_language)
