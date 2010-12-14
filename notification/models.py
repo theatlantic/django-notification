@@ -8,7 +8,6 @@ except ImportError:
 from django.db import models
 from django.db.models.query import QuerySet
 from django.conf import settings
-from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
 from django.template import Context
 from django.template.loader import render_to_string
@@ -25,19 +24,12 @@ from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext, get_language, activate
 
+from notification.backends import NoticeBackends
 
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 
 class LanguageStoreNotAvailable(Exception):
     pass
-
-class NoticeMedium(dict):
-    EMAIL, FACEBOOK = range(2)
-
-    def __init__(self):
-        super(NoticeMedium, self).__init__({
-            self.EMAIL: "E-mail",
-        })
 
 class NoticeType(models.Model):
 
@@ -65,7 +57,7 @@ class NoticeSetting(models.Model):
 
     user = models.ForeignKey(User, verbose_name=_('user'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
-    medium = models.IntegerField(_('medium'), choices=NoticeMedium().items())
+    medium = models.IntegerField(_('medium'), choices=NoticeBackends.mediums())
     send = models.BooleanField(_('send'))
 
     class Meta:
@@ -85,7 +77,8 @@ def get_notification_setting(user, notice_type, medium):
         return setting
 
 def should_send(user, notice_type, medium):
-    return get_notification_setting(user, notice_type, medium).send
+    return user.is_active and get_notification_setting(
+            user, notice_type, medium).send
 
 
 class NoticeManager(models.Manager):
@@ -316,14 +309,10 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
                 message=messages['notice.html'],
                 notice_type=notice_type,
                 on_site=on_site, sender=sender)
-        if (should_send(user, notice_type, NoticeMedium.EMAIL) and user.email
-                and user.is_active): # Email
-            # Strip newlines from subject
-            subject = ''.join(render_to_string('notification/email_subject.txt',
-                    {'message': messages['short.txt'],}, context).splitlines())
-            body = render_to_string('notification/email_body.txt',
-                    {'message': messages['full.txt'],}, context)
-            send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+
+        for medium, backend in NoticeBackends.backends():
+            if should_send(user, notice_type, medium):
+                backend().send(user, messages, context)
 
     # reset environment to original language
     activate(current_language)
@@ -337,8 +326,7 @@ def send(*args, **kwargs):
     """
     queue_flag = kwargs.pop("queue", False)
     now_flag = kwargs.pop("now", False)
-    assert (not (queue_flag and now_flag),
-            "'queue' and 'now' cannot both be True.")
+    assert not (queue_flag and now_flag), "'queue' and 'now' cannot both be True."
     if queue_flag:
         return queue(*args, **kwargs)
     elif now_flag:

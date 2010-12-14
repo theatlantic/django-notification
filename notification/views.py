@@ -8,6 +8,7 @@ from django.contrib.syndication.views import feed
 from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
 from notification.feeds import NoticeUserFeed
+from notification.backends import NoticeBackends
 
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
@@ -54,7 +55,7 @@ def notice_settings(request):
             A list of all :model:`notification.NoticeType` objects.
         
         notice_settings
-            A dictionary containing ``column_headers`` for each ``NoticeMedium``
+            A dictionary containing ``column_headers`` for each ``NoticeBackend``
             and ``rows`` containing a list of dictionaries: ``notice_type``, a
             :model:`notification.NoticeType` object and ``cells``, a list of
             tuples whose first value is suitable for use in forms and the second
@@ -65,7 +66,7 @@ def notice_settings(request):
     settings_table = []
     for notice_type in notice_types:
         settings_row = []
-        for medium_id, medium_display in NoticeMedium().items():
+        for medium_id, medium_display in NoticeBackends.mediums():
             form_label = "%s_%s" % (notice_type.label, medium_id)
             setting = get_notification_setting(request.user, notice_type, medium_id)
             if request.method == "POST":
@@ -82,7 +83,7 @@ def notice_settings(request):
     
     notice_settings = {
         "column_headers": [medium_display for medium_id, medium_display
-                in NoticeMedium().items()],
+                in NoticeBackends.mediums()],
         "rows": settings_table,
     }
     
