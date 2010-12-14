@@ -1,3 +1,5 @@
+from django.template.loader import render_to_string
+
 class NotificationBackend(object):
     slug = None
     display_name = None
@@ -14,3 +16,7 @@ class NotificationBackend(object):
 
     def send(self, notice, messages, context, *args, **kwargs):
         raise NotImplementedError
+
+    def render_message(self, template, notice_template, context, messages):
+        return render_to_string(template,
+                {'message': messages[notice_template],}, context)

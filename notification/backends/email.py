@@ -1,4 +1,3 @@
-from django.template.loader import render_to_string
 from django.core.mail import send_mail
 from django.conf import settings
 
@@ -12,16 +11,18 @@ class EmailBackend(NotificationBackend):
         send = super(EmailBackend, self).should_send(notice)
         return send and notice.recipient.email
 
+    def render_subject(self, context, messages):
+        # Strip newlines from subject
+        return ''.join(self.render_message('notification/email_subject.txt',
+                'short.txt', context, messages).splitlines())
+
     def send(self, notice, messages, context, *args, **kwargs):
         if not self.should_send(notice):
             return False
 
-        # Strip newlines from subject
-        subject = ''.join(render_to_string('notification/email_subject.txt',
-                {'message': messages['short.txt'],}, context).splitlines())
-        body = render_to_string('notification/email_body.txt',
-                {'message': messages['full.txt'],}, context)
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL,
+        send_mail(self.render_subject(context, messages),
+                self.render_message('notification/email_body.txt',
+                        'full.txt', context, messages),
+                settings.DEFAULT_FROM_EMAIL,
                 [notice.recipient.email])
-
         return True

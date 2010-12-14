@@ -21,8 +21,8 @@ __version__ = get_version()
 # import path to a custom backend.
 BACKENDS = {
     'email': 'email.EmailBackend',
-    'facebook': 'facebook.FacebookBackend',
-    'dummy': 'dummy.FacebookBackend',
+    'facebook': 'fb.FacebookWallPostBackend',
+    'dummy': 'dummy.DummyBackend',
 }
 
 DEFAULT_BACKEND = 'email'
