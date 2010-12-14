@@ -84,7 +84,11 @@ def notice_settings(request):
                         saved = True
             settings_row.append((form_label, setting.send))
         settings_table.append({"notice_type": notice_type, "cells": settings_row})
-    
+
+    if request.method == "POST":
+        next_page = request.POST.get("next_page", ".")
+        return HttpResponseRedirect(next_page)
+
     notice_settings = {
         "column_headers": [backend.display_name for backend in backends],
         "rows": settings_table,
