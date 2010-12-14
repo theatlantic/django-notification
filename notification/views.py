@@ -189,7 +189,5 @@ def mark_all_seen(request):
     ``HttpResponseRedirect`` when complete. 
     """
     
-    for notice in Notice.objects.notices_for(request.user, unseen=True):
-        notice.unseen = False
-        notice.save()
+    Notice.objects.notices_for(request.user, unseen=True).update(unseen=False)
     return HttpResponseRedirect(reverse("notification_notices"))

@@ -101,7 +101,7 @@ class NoticeManager(models.Manager):
             lookup_kwargs = {"recipient": user}
         qs = self.filter(**lookup_kwargs)
         if not archived:
-            self.filter(archived=archived)
+            qs = qs.filter(archived=archived)
         if unseen is not None:
             qs = qs.filter(unseen=unseen)
         if on_site is not None:
@@ -263,7 +263,11 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
     if extra_context is None:
         extra_context = {}
 
-    notice_type = NoticeType.objects.get(label=label)
+    try:
+        notice_type = NoticeType.objects.get(label=label)
+    except NoticeType.DoesNotExist:
+        raise NoticeType.DoesNotExist("'label' must be a label of an " +
+                                      "existing NoticeType")
 
     protocol = getattr(settings, "DEFAULT_HTTP_PROTOCOL", "http")
     current_site = Site.objects.get_current()
@@ -356,6 +360,10 @@ def queue(users, label, extra_context=None, on_site=True, sender=None):
     for user in users:
         notices.append((user, label, extra_context, on_site, sender))
     NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
+
+    if 'djcelery' in settings.INSTALLED_APPS:
+        from notification.tasks import emit_notices
+        emit_notices.delay()
 
 class ObservedItemManager(models.Manager):
 

@@ -1,4 +1,3 @@
-
 import logging
 
 from django.core.management.base import NoArgsCommand
@@ -12,4 +11,3 @@ class Command(NoArgsCommand):
         logging.basicConfig(level=logging.DEBUG, format="%(message)s")
         logging.info("-" * 72)
         send_all()
-    
