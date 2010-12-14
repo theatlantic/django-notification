@@ -366,6 +366,10 @@ def queue(users, label, extra_context=None, on_site=True, sender=None):
         notices.append((user, label, extra_context, on_site, sender))
     NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
 
+    if 'djcelery' in settings.INSTALLED_APPS:
+        from notification.tasks import emit_notices
+        emit_notices.delay()
+
 class ObservedItemManager(models.Manager):
 
     def all_for(self, observed, signal):
