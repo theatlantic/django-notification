@@ -54,7 +54,7 @@ def notice_settings(request):
             A list of all :model:`notification.NoticeType` objects.
         
         notice_settings
-            A dictionary containing ``column_headers`` for each ``NOTICE_MEDIA``
+            A dictionary containing ``column_headers`` for each ``NoticeMedium``
             and ``rows`` containing a list of dictionaries: ``notice_type``, a
             :model:`notification.NoticeType` object and ``cells``, a list of
             tuples whose first value is suitable for use in forms and the second
@@ -65,7 +65,7 @@ def notice_settings(request):
     settings_table = []
     for notice_type in notice_types:
         settings_row = []
-        for medium_id, medium_display in NOTICE_MEDIA:
+        for medium_id, medium_display in NoticeMedium().items():
             form_label = "%s_%s" % (notice_type.label, medium_id)
             setting = get_notification_setting(request.user, notice_type, medium_id)
             if request.method == "POST":
@@ -81,7 +81,8 @@ def notice_settings(request):
         settings_table.append({"notice_type": notice_type, "cells": settings_row})
     
     notice_settings = {
-        "column_headers": [medium_display for medium_id, medium_display in NOTICE_MEDIA],
+        "column_headers": [medium_display for medium_id, medium_display
+                in NoticeMedium().items()],
         "rows": settings_table,
     }
     

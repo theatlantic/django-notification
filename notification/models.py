@@ -31,13 +31,22 @@ QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 class LanguageStoreNotAvailable(Exception):
     pass
 
+class NoticeMedium(dict):
+    EMAIL, FACEBOOK = range(2)
+
+    def __init__(self):
+        super(NoticeMedium, self).__init__({
+            self.EMAIL: "E-mail",
+        })
+
 class NoticeType(models.Model):
 
     label = models.CharField(_('label'), max_length=40)
     display = models.CharField(_('display'), max_length=50)
     description = models.CharField(_('description'), max_length=100)
 
-    # by default only on for media with sensitivity less than or equal to this number
+    # by default only on for media with sensitivity less than or equal
+    # to this number
     default = models.IntegerField(_('default'))
 
     def __unicode__(self):
@@ -48,16 +57,6 @@ class NoticeType(models.Model):
         verbose_name_plural = _("notice types")
 
 
-# if this gets updated, the create() method below needs to be as well...
-NOTICE_MEDIA = (
-    ("1", _("Email")),
-)
-
-# how spam-sensitive is the medium
-NOTICE_MEDIA_DEFAULTS = {
-    "1": 2 # email
-}
-
 class NoticeSetting(models.Model):
     """
     Indicates, for a given user, whether to send notifications
@@ -66,7 +65,7 @@ class NoticeSetting(models.Model):
 
     user = models.ForeignKey(User, verbose_name=_('user'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
-    medium = models.CharField(_('medium'), max_length=1, choices=NOTICE_MEDIA)
+    medium = models.IntegerField(_('medium'), choices=NoticeMedium().items())
     send = models.BooleanField(_('send'))
 
     class Meta:
@@ -76,10 +75,12 @@ class NoticeSetting(models.Model):
 
 def get_notification_setting(user, notice_type, medium):
     try:
-        return NoticeSetting.objects.get(user=user, notice_type=notice_type, medium=medium)
+        return NoticeSetting.objects.get(user=user, notice_type=notice_type,
+                medium=medium)
     except NoticeSetting.DoesNotExist:
-        default = (NOTICE_MEDIA_DEFAULTS[medium] <= notice_type.default)
-        setting = NoticeSetting(user=user, notice_type=notice_type, medium=medium, send=default)
+        default = (medium <= notice_type.default)
+        setting = NoticeSetting(user=user, notice_type=notice_type,
+                medium=medium, send=default)
         setting.save()
         return setting
 
@@ -89,7 +90,8 @@ def should_send(user, notice_type, medium):
 
 class NoticeManager(models.Manager):
 
-    def notices_for(self, user, archived=False, unseen=None, on_site=None, sent=False):
+    def notices_for(self, user, archived=False, unseen=None, on_site=None,
+            sent=False):
         """
         returns Notice objects for the given user.
 
@@ -136,8 +138,10 @@ class NoticeManager(models.Manager):
 
 class Notice(models.Model):
 
-    recipient = models.ForeignKey(User, related_name='recieved_notices', verbose_name=_('recipient'))
-    sender = models.ForeignKey(User, null=True, related_name='sent_notices', verbose_name=_('sender'))
+    recipient = models.ForeignKey(User, related_name='recieved_notices',
+            verbose_name=_('recipient'))
+    sender = models.ForeignKey(User, null=True, related_name='sent_notices',
+            verbose_name=_('sender'))
     message = models.TextField(_('message'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
     added = models.DateTimeField(_('added'), default=datetime.datetime.now)
@@ -206,7 +210,8 @@ def create_notice_type(label, display, description, default=2, verbosity=1):
             if verbosity > 1:
                 print "Updated %s NoticeType" % label
     except NoticeType.DoesNotExist:
-        NoticeType(label=label, display=display, description=description, default=default).save()
+        NoticeType(label=label, display=display, description=description,
+                default=default).save()
         if verbosity > 1:
             print "Created %s NoticeType" % label
 
@@ -307,20 +312,18 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
         # get prerendered format messages
         messages = get_formatted_messages(formats, label, context)
 
-        # Strip newlines from subject
-        subject = ''.join(render_to_string('notification/email_subject.txt', {
-            'message': messages['short.txt'],
-        }, context).splitlines())
-
-        body = render_to_string('notification/email_body.txt', {
-            'message': messages['full.txt'],
-        }, context)
-
-        notice = Notice.objects.create(recipient=user, message=messages['notice.html'],
-            notice_type=notice_type, on_site=on_site, sender=sender)
-        if should_send(user, notice_type, "1") and user.email and user.is_active: # Email
-            recipients.append(user.email)
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
+        notice = Notice.objects.create(recipient=user,
+                message=messages['notice.html'],
+                notice_type=notice_type,
+                on_site=on_site, sender=sender)
+        if (should_send(user, notice_type, NoticeMedium.EMAIL) and user.email
+                and user.is_active): # Email
+            # Strip newlines from subject
+            subject = ''.join(render_to_string('notification/email_subject.txt',
+                    {'message': messages['short.txt'],}, context).splitlines())
+            body = render_to_string('notification/email_body.txt',
+                    {'message': messages['full.txt'],}, context)
+            send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
 
     # reset environment to original language
     activate(current_language)
@@ -334,7 +337,8 @@ def send(*args, **kwargs):
     """
     queue_flag = kwargs.pop("queue", False)
     now_flag = kwargs.pop("now", False)
-    assert not (queue_flag and now_flag), "'queue' and 'now' cannot both be True."
+    assert (not (queue_flag and now_flag),
+            "'queue' and 'now' cannot both be True.")
     if queue_flag:
         return queue(*args, **kwargs)
     elif now_flag:
@@ -370,12 +374,14 @@ class ObservedItemManager(models.Manager):
         to be sent when a signal is emited.
         """
         content_type = ContentType.objects.get_for_model(observed)
-        observed_items = self.filter(content_type=content_type, object_id=observed.id, signal=signal)
+        observed_items = self.filter(content_type=content_type,
+                object_id=observed.id, signal=signal)
         return observed_items
 
     def get_for(self, observed, observer, signal):
         content_type = ContentType.objects.get_for_model(observed)
-        observed_item = self.get(content_type=content_type, object_id=observed.id, user=observer, signal=signal)
+        observed_item = self.get(content_type=content_type,
+                object_id=observed.id, user=observer, signal=signal)
         return observed_item
 
 
@@ -411,7 +417,8 @@ def observe(observed, observer, notice_type_label, signal='post_save'):
     """
     Create a new ObservedItem.
 
-    To be used by applications to register a user as an observer for some object.
+    To be used by applications to register a user as an observer for some
+    object.
     """
     notice_type = NoticeType.objects.get(label=notice_type_label)
     observed_item = ObservedItem(user=observer, observed_object=observed,
@@ -426,7 +433,8 @@ def stop_observing(observed, observer, signal='post_save'):
     observed_item = ObservedItem.objects.get_for(observed, observer, signal)
     observed_item.delete()
 
-def send_observation_notices_for(observed, signal='post_save', extra_context=None):
+def send_observation_notices_for(observed, signal='post_save',
+        extra_context=None):
     """
     Send a notice for each registered user about an observed object.
     """
@@ -441,7 +449,8 @@ def is_observing(observed, observer, signal='post_save'):
     if isinstance(observer, AnonymousUser):
         return False
     try:
-        observed_items = ObservedItem.objects.get_for(observed, observer, signal)
+        observed_items = ObservedItem.objects.get_for(observed, observer,
+                signal)
         return True
     except ObservedItem.DoesNotExist:
         return False
