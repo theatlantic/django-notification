@@ -33,35 +33,32 @@ class FacebookBackend(NotificationBackend):
             token = None
         return token
 
-    def should_send(self, notice):
+    def should_send(self, sender, recipient, notice_type, *args, **kwargs):
         """Return true if the sender has an OAuth token and the recipient has at
         least a Facebook OpenGraph ID.
         """
-        send = super(FacebookBackend, self).should_send(notice)
-        return (send and self.facebook_token(notice.sender)
-                and self.facebook_user_id(notice.recipient))
+        send = super(FacebookBackend, self).should_send(sender, recipient, notice_type)
+        return (send and self.facebook_token(sender)
+                and self.facebook_user_id(recipient))
 
 
 class FacebookWallPostBackend(FacebookBackend):
     slug = u"facebook_wall_post"
     display_name = u"Facebook Wall Post"
 
-    def send(self, notice, messages, context, *args, **kwargs):
-        if not self.should_send(notice):
+    def send(self, sender, recipient, notice_type, context, *args, **kwargs):
+        if not self.should_send(sender, recipient, notice_type):
             return False
 
+        message = self.render_message(notice_type.label,
+                'notification/facebook/wall_post.txt', 'notice.html', context)
         try:
-            graph = self.graph_api(notice.sender)
-            message = self.render_message(
-                    'notification/facebook/wall_post.txt',
-                    'short.txt',
-                    context,
-                    messages),
+            graph = self.graph_api(sender)
             graph.put_wall_post(message,
-                    profile_id=self.facebook_user_id(notice.recipient))
+                    profile_id=self.facebook_user_id(recipient))
         except facebook.GraphAPIError:
             log.exception("Received an error when making a wall post from "
-                    "%s to %s" % (notice.sender, notice.recipient))
+                    "%s to %s" % (sender, recipient))
             return False
         else:
             return True

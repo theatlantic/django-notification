@@ -31,6 +31,7 @@ QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 class LanguageStoreNotAvailable(Exception):
     pass
 
+
 class NoticeType(models.Model):
 
     label = models.CharField(_('label'), max_length=40)
@@ -40,6 +41,11 @@ class NoticeType(models.Model):
     # by default only on for media with sensitivity less than or equal
     # to this number
     default = models.IntegerField(_('default'))
+
+    def get_setting(self, user, backend):
+        setting, _ = NoticeSetting.objects.get_or_create(user=user,
+                notice_type=self, backend=backend)
+        return setting
 
     def __unicode__(self):
         return self.label
@@ -167,11 +173,6 @@ class Notice(models.Model):
             self.save()
         return unseen
 
-    def get_setting(self, backend):
-        setting, _ = NoticeSetting.objects.get_or_create(user=self.recipient,
-                notice_type=self.notice_type, backend=backend)
-        return setting
-
     class Meta:
         ordering = ["-added"]
         verbose_name = _("notice")
@@ -234,23 +235,6 @@ def get_notification_language(user):
             raise LanguageStoreNotAvailable
     raise LanguageStoreNotAvailable
 
-def get_formatted_messages(formats, label, context):
-    """
-    Returns a dictionary with the format identifier as the key. The values are
-    are fully rendered templates with the given context.
-    """
-    format_templates = {}
-    for format in formats:
-        # conditionally turn off autoescaping for .txt extensions in format
-        if format.endswith(".txt"):
-            context.autoescape = False
-        else:
-            context.autoescape = True
-        format_templates[format] = render_to_string((
-            'notification/%s/%s' % (label, format),
-            'notification/%s' % format), context_instance=context)
-    return format_templates
-
 def send_now(users, label, extra_context=None, on_site=True, sender=None):
     """
     Creates a new notice.
@@ -285,13 +269,6 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
 
     current_language = get_language()
 
-    formats = (
-        'short.txt',
-        'full.txt',
-        'notice.html',
-        'full.html',
-    ) # TODO make formats configurable
-
     for user in users:
         recipients = []
         # get user language for user from language store defined in
@@ -315,16 +292,8 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
         })
         context.update(extra_context)
 
-        # get prerendered format messages
-        messages = get_formatted_messages(formats, label, context)
-
-        notice = Notice.objects.create(recipient=user,
-                message=messages['notice.html'],
-                notice_type=notice_type,
-                on_site=on_site, sender=sender)
-
         for backend in backends:
-            backend.send(notice, messages, context)
+            backend.send(sender, user, notice_type, context, on_site=on_site)
 
     # reset environment to original language
     activate(current_language)

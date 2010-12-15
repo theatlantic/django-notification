@@ -22,10 +22,11 @@ __version__ = get_version()
 BACKENDS = {
     'email': 'email.EmailBackend',
     'facebook': 'fb.FacebookWallPostBackend',
+    'web': 'web.WebBackend',
     'dummy': 'dummy.DummyBackend',
 }
 
-DEFAULT_BACKEND = 'email'
+DEFAULT_BACKENDS = ['email', 'web']
 
 def load_backend(backend):
     if backend in BACKENDS:
@@ -54,8 +55,9 @@ def get_backends():
     for backend in getattr(settings, 'NOTIFICATION_BACKENDS', []):
         backends.append(load_backend(backend))
     if not backends:
-        backends.append(load_backend(DEFAULT_BACKEND))
-    return backends
+        for backend in DEFAULT_BACKENDS:
+            backends.append(load_backend(backend))
+    return set(backends)
 
 backends = get_backends()
 
@@ -64,6 +66,6 @@ def get_backend_field_choices():
     for backend in backends:
         name = "%s.%s" % (backend.__module__, backend.__class__.__name__)
         choices.append((name, backend.display_name))
-    return choices
+    return set(choices)
 
 backend_field_choices = get_backend_field_choices()

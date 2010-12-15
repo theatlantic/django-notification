@@ -4,19 +4,42 @@ class NotificationBackend(object):
     slug = None
     display_name = None
     sensitivity = 2
+    format_templates = {}
 
     def path(self):
        return  "%s.%s" % (self.__module__, self.__class__.__name__)
 
-    def should_send(self, notice):
-        return notice.recipient.is_active and notice.get_setting(self).send
+    def get_formats(self):
+        return self.formats
+
+    def format_message(self, label, template, context):
+        """
+        Returns a dictionary with the format identifier as the key. The values are
+        are fully rendered templates with the given context.
+        """
+        # conditionally turn off autoescaping for .txt extensions in format
+        if template.endswith(".txt"):
+            context.autoescape = False
+        else:
+            context.autoescape = True
+        return render_to_string(
+                    ('notification/%s/%s/%s' % (self.slug, label, template),
+                    'notification/%s/%s/%s' % (label, self.slug, template),
+                    'notification/%s/%s' % (label, template),
+                    'notification/%s' % template),
+                context_instance=context)
+    
+    def should_send(self, sender, recipient, notice_type, *args, **kwargs):
+        return (recipient.is_active and
+                notice_type.get_setting(recipient, self).send)
 
     def display_name(self):
         raise NotImplementedError
 
-    def send(self, notice, messages, context, *args, **kwargs):
+    def send(self, sender, recipient, notice_type, context, *args, **kwargs):
         raise NotImplementedError
 
-    def render_message(self, template, notice_template, context, messages):
+    def render_message(self, label, template, format_template, context):
+        message = self.format_message(label, format_template, context)
         return render_to_string(template,
-                {'message': messages[notice_template],}, context)
+                {'message': message,}, context)
