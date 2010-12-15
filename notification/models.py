@@ -48,6 +48,7 @@ class NoticeType(models.Model):
         verbose_name = _("notice type")
         verbose_name_plural = _("notice types")
 
+
 class NoticeSettingManager(models.Manager):
     def get_or_create(self, user=None, notice_type=None, backend=None,
             **kwargs):
@@ -58,8 +59,11 @@ class NoticeSettingManager(models.Manager):
         except NoticeSetting.DoesNotExist:
             default = backend.sensitivity <= notice_type.default
             setting = NoticeSetting.objects.create(user=user,
-                    notice_type=notice_type, backend=backend.path(), send=default)
+                    notice_type=notice_type,
+                    backend=backend.path(),
+                    send=default)
             return setting, True
+
 
 class NoticeSetting(models.Model):
     """
@@ -114,14 +118,14 @@ class NoticeManager(models.Manager):
         mark them seen
         """
         return self.notices_for(recipient, unseen=True, **kwargs).count()
-    
+
     def received(self, recipient, **kwargs):
         """
         returns notices the given recipient has recieved.
         """
         kwargs["sent"] = False
         return self.notices_for(recipient, **kwargs)
-    
+
     def sent(self, sender, **kwargs):
         """
         returns notices the given sender has sent
@@ -220,7 +224,8 @@ def get_notification_language(user):
     """
     if getattr(settings, 'NOTIFICATION_LANGUAGE_MODULE', False):
         try:
-            app_label, model_name = settings.NOTIFICATION_LANGUAGE_MODULE.split('.')
+            app_label, model_name = (
+                    settings.NOTIFICATION_LANGUAGE_MODULE.split('.'))
             model = models.get_model(app_label, model_name)
             language_model = model._default_manager.get(user__id__exact=user.id)
             if hasattr(language_model, 'language'):
@@ -256,7 +261,7 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
         'spam': 'eggs',
         'foo': 'bar',
     )
-    
+
     You can pass in on_site=False to prevent the notice emitted from being
     displayed on the site.
     """
@@ -343,7 +348,7 @@ def send(*args, **kwargs):
             return queue(*args, **kwargs)
         else:
             return send_now(*args, **kwargs)
-        
+
 def queue(users, label, extra_context=None, on_site=True, sender=None):
     """
     Queue the notification in NoticeQueueBatch. This allows for large amounts
