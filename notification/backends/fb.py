@@ -19,7 +19,7 @@ class FacebookBackend(NotificationBackend):
         """Return the Facebook OpenGraph ID for the user or None if they do not
         have one in the system."""
         try:
-            user_id = unicode(user.get_profile().facebook_auth.identifier)
+            user_id = unicode(user.get_profile().facebook_id)
         except ObjectDoesNotExist:
             user_id = None
         return user_id
