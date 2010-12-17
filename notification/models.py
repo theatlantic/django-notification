@@ -116,7 +116,7 @@ class NoticeManager(models.Manager):
             qs = qs.filter(unseen=unseen)
         if on_site is not None:
             qs = qs.filter(on_site=on_site)
-        return qs
+        return qs.select_related('notice_type')
 
     def unseen_count_for(self, recipient, **kwargs):
         """
