@@ -1,6 +1,3 @@
-from django.core.mail import send_mail
-from django.conf import settings
-
 from notification.backends.base import NotificationBackend
 
 class WebBackend(NotificationBackend):
