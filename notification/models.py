@@ -235,7 +235,8 @@ def get_notification_language(user):
             raise LanguageStoreNotAvailable
     raise LanguageStoreNotAvailable
 
-def send_now(users, label, extra_context=None, on_site=True, sender=None):
+def send_now(users, label, extra_context=None, on_site=True, sender=None,
+        **kwargs):
     """
     Creates a new notice.
 
@@ -293,7 +294,8 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
         context.update(extra_context)
 
         for backend in backends:
-            backend.send(sender, user, notice_type, context, on_site=on_site)
+            backend.send(sender, user, notice_type, context, on_site=on_site,
+                    **kwargs)
 
     # reset environment to original language
     activate(current_language)

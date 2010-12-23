@@ -1,5 +1,6 @@
 from django.core.mail import send_mail
 from django.conf import settings
+from django.core.mail import EmailMessage
 
 from notification.backends.base import NotificationBackend
 
@@ -23,11 +24,12 @@ class EmailBackend(NotificationBackend):
         if not self.should_send(sender, recipient, notice_type):
             return False
 
-        send_mail(self.render_subject(notice_type.label, context),
+        EmailMessage(self.render_subject(notice_type.label, context),
                 self.render_message(notice_type.label,
                         'notification/email_body.txt',
                         'full.txt',
                         context),
-                settings.DEFAULT_FROM_EMAIL,
-                [recipient.email])
+                kwargs.get('from_email') or settings.DEFAULT_FROM_EMAIL,
+                [recipient.email],
+                headers=kwargs.get('headers', {})).send()
         return True
