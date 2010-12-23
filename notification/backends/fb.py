@@ -18,6 +18,8 @@ class FacebookBackend(NotificationBackend):
     def facebook_user_id(self, user):
         """Return the Facebook OpenGraph ID for the user or None if they do not
         have one in the system."""
+        if not user:
+            return
         try:
             user_id = unicode(user.get_profile().facebook_id)
         except ObjectDoesNotExist:
@@ -27,6 +29,8 @@ class FacebookBackend(NotificationBackend):
     def facebook_token(self, user):
         """Return the Facebook OpenGraph OAuth token for the user or None if
         they do not have one in the system."""
+        if not user:
+            return
         try:
             token = user.get_profile().facebook_auth.token
         except ObjectDoesNotExist:
@@ -37,7 +41,8 @@ class FacebookBackend(NotificationBackend):
         """Return true if the sender has an OAuth token and the recipient has at
         least a Facebook OpenGraph ID.
         """
-        send = super(FacebookBackend, self).should_send(sender, recipient, notice_type)
+        send = super(FacebookBackend, self).should_send(sender, recipient,
+                notice_type)
         return (send and self.facebook_token(sender)
                 and self.facebook_user_id(recipient))
 
