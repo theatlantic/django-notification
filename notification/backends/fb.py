@@ -60,6 +60,7 @@ class FacebookWallPostBackend(FacebookBackend):
         try:
             graph = self.graph_api(sender)
             graph.put_wall_post(message,
+                    attachment=kwargs.get('attachment', {}),
                     profile_id=self.facebook_user_id(recipient))
         except facebook.GraphAPIError:
             log.exception("Received an error when making a wall post from "
