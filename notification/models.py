@@ -259,10 +259,10 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None,
         raise NoticeType.DoesNotExist("'label' must be a label of an " +
                                       "existing NoticeType")
 
-    protocol = getattr(settings, "DEFAULT_HTTP_PROTOCOL", "http")
+    protocol = getattr(settings, "DEFAULT_HTTP_PROTOCOL", "http") + "://"
     current_site = Site.objects.get_current()
 
-    notices_url = u"%s://%s%s" % (
+    notices_url = u"%s%s%s" % (
         protocol,
         unicode(current_site),
         reverse("notification_notices"),
@@ -289,6 +289,7 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None,
             "sender": sender,
             "notice": ugettext(notice_type.display),
             "notices_url": notices_url,
+            "protocol": protocol,
             "current_site": current_site,
         })
         context.update(extra_context)
