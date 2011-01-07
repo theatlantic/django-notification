@@ -321,7 +321,8 @@ def send(*args, **kwargs):
         else:
             return send_now(*args, **kwargs)
 
-def queue(users, label, extra_context=None, on_site=True, sender=None):
+def queue(users, label, extra_context=None, on_site=True, sender=None,
+        **kwargs):
     """
     Queue the notification in NoticeQueueBatch. This allows for large amounts
     of user notifications to be deferred to a seperate process running outside
@@ -335,7 +336,7 @@ def queue(users, label, extra_context=None, on_site=True, sender=None):
         users = [user.pk for user in users]
     notices = []
     for user in users:
-        notices.append((user, label, extra_context, on_site, sender))
+        notices.append((user, label, extra_context, on_site, sender, kwargs))
     NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
 
     if 'djcelery' in settings.INSTALLED_APPS:
