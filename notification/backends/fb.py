@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 
 
 class FacebookBackend(NotificationBackend):
+    sensitivity = 3
     def graph_api(self, user):
         """Return an instance of facebook.GraphAPI authorized with the `user`'s
         OAUth token.
