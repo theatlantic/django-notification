@@ -140,7 +140,7 @@ class NoticeManager(models.Manager):
         return self.notices_for(sender, **kwargs)
 
 class Notice(models.Model):
-    recipient = models.ForeignKey(User, related_name='recieved_notices',
+    recipient = models.ForeignKey(User, related_name='received_notices',
             verbose_name=_('recipient'))
     sender = models.ForeignKey(User, null=True, related_name='sent_notices',
             verbose_name=_('sender'))
