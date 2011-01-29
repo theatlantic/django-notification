@@ -24,6 +24,9 @@ class EmailBackend(NotificationBackend):
         if not self.should_send(sender, recipient, notice_type):
             return False
 
+        headers = kwargs.get('headers', {})
+        headers.setdefault('Reply-To', settings.DEFAULT_FROM_EMAIL)
+
         EmailMessage(self.render_subject(notice_type.label, context),
                 self.render_message(notice_type.label,
                         'notification/email_body.txt',
@@ -31,5 +34,5 @@ class EmailBackend(NotificationBackend):
                         context),
                 kwargs.get('from_email') or settings.DEFAULT_FROM_EMAIL,
                 [recipient.email],
-                headers=kwargs.get('headers', {})).send()
+                headers=headers).send()
         return True
