@@ -1,6 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist
 
 from notification.backends.base import NotificationBackend
+from notification.utils import unescape
 
 import facebook
 
@@ -60,7 +61,7 @@ class FacebookWallPostBackend(FacebookBackend):
                 'notification/facebook/wall_post.txt', 'notice.html', context)
         try:
             graph = self.graph_api(sender)
-            graph.put_wall_post(message,
+            graph.put_wall_post(unescape(message),
                     attachment=kwargs.get('attachment', {}),
                     profile_id=self.facebook_user_id(recipient))
         except facebook.GraphAPIError:
