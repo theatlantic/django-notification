@@ -334,7 +334,7 @@ def queue(users, label, extra_context=None, on_site=True, sender=None,
 
     if 'djcelery' in settings.INSTALLED_APPS:
         from notification.tasks import emit_notices
-        emit_notices.delay()
+        emit_notices.apply_async(countdown=2)
 
 class ObservedItemManager(models.Manager):
 
