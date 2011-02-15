@@ -42,8 +42,8 @@ def send_all():
 
     try:
         # nesting the try statement to be Python 2.4
-        try:
-            for queued_batch in NoticeQueueBatch.objects.order_by('-id'):
+        for queued_batch in NoticeQueueBatch.objects.order_by('-id'):
+            try:
                 notices = pickle.loads(str(queued_batch.pickled_data).decode("base64"))
                 for user, label, extra_context, on_site, sender, kwargs in notices:
                     try:
@@ -59,16 +59,16 @@ def send_all():
                     sent += 1
                 queued_batch.delete()
                 batches += 1
-        except:
-            # get the exception
-            exc_class, e, t = sys.exc_info()
-            # email people
-            current_site = Site.objects.get_current()
-            subject = "[%s emit_notices] %r" % (current_site.name, e)
-            message = "%s" % ("\n".join(traceback.format_exception(*sys.exc_info())),)
-            mail_admins(subject, message, fail_silently=True)
-            # log it as critical
-            logging.critical("an exception occurred: %r" % e)
+            except:
+                # get the exception
+                exc_class, e, t = sys.exc_info()
+                # email people
+                current_site = Site.objects.get_current()
+                subject = "[%s emit_notices] %r" % (current_site.name, e)
+                message = "%s" % ("\n".join(traceback.format_exception(*sys.exc_info())),)
+                mail_admins(subject, message, fail_silently=True)
+                # log it as critical
+                logging.critical("an exception occurred: %r" % e)
     finally:
         logging.debug("releasing lock...")
         lock.release()
