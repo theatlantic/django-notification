@@ -9,10 +9,13 @@ class EmailBackend(NotificationBackend):
     display_name = u'E-mail'
     formats = ['short.txt', 'full.txt']
 
+    def email_for_user(self, recipient):
+        return recipient.email
+
     def should_send(self, sender, recipient, notice_type, *args, **kwargs):
         send = super(EmailBackend, self).should_send(sender, recipient,
                 notice_type)
-        return send and recipient.email
+        return send and self.email_for_user(recipient)
 
     def render_subject(self, label, context):
         # Strip newlines from subject
@@ -33,6 +36,6 @@ class EmailBackend(NotificationBackend):
                         'full.txt',
                         context),
                 kwargs.get('from_email') or settings.DEFAULT_FROM_EMAIL,
-                [recipient.email],
+                [self.email_for_user(recipient)],
                 headers=headers).send()
         return True
