@@ -33,11 +33,7 @@ class FacebookBackend(NotificationBackend):
         they do not have one in the system."""
         if not user:
             return
-        try:
-            token = user.get_profile().facebook_auth().token
-        except ObjectDoesNotExist:
-            token = None
-        return token
+        return getattr(user.get_profile().facebook_auth(), 'token', None)
 
     def should_send(self, sender, recipient, notice_type, *args, **kwargs):
         """Return true if the sender has an OAuth token and the recipient has at
