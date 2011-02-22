@@ -15,7 +15,7 @@ class FacebookBackend(NotificationBackend):
         """Return an instance of facebook.GraphAPI authorized with the `user`'s
         OAUth token.
         """
-        return user.get_profile().facebook_graph_api
+        return user.get_profile().facebook_graph_api()
 
     def facebook_user_id(self, user):
         """Return the Facebook OpenGraph ID for the user or None if they do not
@@ -23,7 +23,7 @@ class FacebookBackend(NotificationBackend):
         if not user:
             return
         try:
-            user_id = unicode(user.get_profile().facebook_id)
+            user_id = unicode(user.get_profile().facebook_id())
         except ObjectDoesNotExist:
             user_id = None
         return user_id
@@ -34,7 +34,7 @@ class FacebookBackend(NotificationBackend):
         if not user:
             return
         try:
-            token = user.get_profile().facebook_auth.token
+            token = user.get_profile().facebook_auth().token
         except ObjectDoesNotExist:
             token = None
         return token

@@ -88,7 +88,7 @@ def notice_settings(request):
         return HttpResponseRedirect(next_page)
 
     notice_settings = {
-        "column_headers": [backend.display_name for backend in backends],
+        "column_headers": [backend.display_name() for backend in backends],
         "rows": settings_table,
     }
     
