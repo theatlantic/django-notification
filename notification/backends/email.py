@@ -1,8 +1,8 @@
-from django.core.mail import send_mail
 from django.conf import settings
 from django.core.mail import EmailMessage
 
 from notification.backends.base import NotificationBackend
+
 
 class EmailBackend(NotificationBackend):
     slug = u'email'
@@ -15,7 +15,7 @@ class EmailBackend(NotificationBackend):
     def should_send(self, sender, recipient, notice_type, *args, **kwargs):
         send = super(EmailBackend, self).should_send(sender, recipient,
                 notice_type)
-        return send and self.email_for_user(recipient)
+        return send and self.email_for_user(recipient) != ''
 
     def render_subject(self, label, context):
         # Strip newlines from subject
