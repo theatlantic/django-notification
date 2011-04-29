@@ -23,7 +23,7 @@ class FacebookBackend(NotificationBackend):
         if not user:
             return
         try:
-            user_id = unicode(user.get_profile().facebook_id())
+            user_id = unicode(user.get_profile().facebook_id() or '')
         except ObjectDoesNotExist:
             user_id = None
         return user_id
