@@ -330,11 +330,14 @@ def queue(users, label, extra_context=None, on_site=True, sender=None,
     notices = []
     for user in users:
         notices.append((user, label, extra_context, on_site, sender, kwargs))
-    NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
-
+    batch = NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode(
+            "base64"))
+    batch.save()
     if 'djcelery' in settings.INSTALLED_APPS:
-        from notification.tasks import emit_notices
-        emit_notices.apply_async(countdown=2)
+        # TODO could also send a task per notice and drop the whole batch
+        # thing
+        from notification.tasks import emit_notice_batch
+        emit_notice_batch.delay(batch.id)
 
 class ObservedItemManager(models.Manager):
 
