@@ -372,6 +372,8 @@ def queue(users, label, extra_context=None, on_site=True, sender=None):
         # TODO could also send a task per notice and drop the whole batch
         # thing
         from notification.tasks import emit_notice_batch
+        from django.db import transaction
+        transaction.commit()
         emit_notice_batch.delay(batch.id)
 
 class ObservedItemManager(models.Manager):
