@@ -8,8 +8,7 @@ class NoticeTypeAdmin(admin.ModelAdmin):
 
 
 class NoticeSettingAdmin(admin.ModelAdmin):
-    list_display = ["id", "user", "notice_type", "medium", "send"]
-
+    list_display = ('id', 'user', 'notice_type', 'backend', 'send')
 
 class NoticeAdmin(admin.ModelAdmin):
     list_display = ["message", "recipient", "sender", "notice_type", "added", "unseen", "archived"]

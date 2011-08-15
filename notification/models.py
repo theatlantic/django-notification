@@ -22,21 +22,30 @@ from django.contrib.auth.models import AnonymousUser
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
+from notification import backend_field_choices, backends
+
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 
 
 class LanguageStoreNotAvailable(Exception):
     pass
 
+
 class NoticeType(models.Model):
-    
-    label = models.CharField(_("label"), max_length=40)
-    display = models.CharField(_("display"), max_length=50)
-    description = models.CharField(_("description"), max_length=100)
-    
-    # by default only on for media with sensitivity less than or equal to this number
-    default = models.IntegerField(_("default"))
-    
+
+    label = models.CharField(_('label'), max_length=40)
+    display = models.CharField(_('display'), max_length=50)
+    description = models.CharField(_('description'), max_length=100)
+
+    # by default only on for media with sensitivity less than or equal
+    # to this number
+    default = models.IntegerField(_('default'))
+
+    def get_setting(self, user, backend):
+        setting, _ = NoticeSetting.objects.get_or_create(user=user,
+                notice_type=self, backend=backend)
+        return setting
+
     def __unicode__(self):
         return self.label
     
@@ -45,50 +54,46 @@ class NoticeType(models.Model):
         verbose_name_plural = _("notice types")
 
 
-# if this gets updated, the create() method below needs to be as well...
-NOTICE_MEDIA = (
-    ("1", _("Email")),
-)
+class NoticeSettingManager(models.Manager):
+    def get_or_create(self, user=None, notice_type=None, backend=None,
+            **kwargs):
+        try:
+            return NoticeSetting.objects.get(user=user,
+                    notice_type=notice_type,
+                    backend=backend.path()), False
+        except NoticeSetting.DoesNotExist:
+            default = backend.sensitivity <= notice_type.default
+            setting = NoticeSetting.objects.create(user=user,
+                    notice_type=notice_type,
+                    backend=backend.path(),
+                    send=default)
+            return setting, True
 
-# how spam-sensitive is the medium
-NOTICE_MEDIA_DEFAULTS = {
-    "1": 2 # email
-}
 
 class NoticeSetting(models.Model):
     """
     Indicates, for a given user, whether to send notifications
-    of a given type to a given medium.
+    of a given type to a given backend.
     """
-    
-    user = models.ForeignKey(User, verbose_name=_("user"))
-    notice_type = models.ForeignKey(NoticeType, verbose_name=_("notice type"))
-    medium = models.CharField(_("medium"), max_length=1, choices=NOTICE_MEDIA)
-    send = models.BooleanField(_("send"))
-    
+
+    user = models.ForeignKey(User, verbose_name=_('user'))
+    notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
+    backend = models.CharField(_('backend'), max_length=128,
+            choices=backend_field_choices)
+    send = models.BooleanField(_('send'))
+
+    objects = NoticeSettingManager()
+
     class Meta:
         verbose_name = _("notice setting")
         verbose_name_plural = _("notice settings")
-        unique_together = ("user", "notice_type", "medium")
-
-
-def get_notification_setting(user, notice_type, medium):
-    try:
-        return NoticeSetting.objects.get(user=user, notice_type=notice_type, medium=medium)
-    except NoticeSetting.DoesNotExist:
-        default = (NOTICE_MEDIA_DEFAULTS[medium] <= notice_type.default)
-        setting = NoticeSetting(user=user, notice_type=notice_type, medium=medium, send=default)
-        setting.save()
-        return setting
-
-
-def should_send(user, notice_type, medium):
-    return get_notification_setting(user, notice_type, medium).send
+        unique_together = ("user", "notice_type", "backend")
 
 
 class NoticeManager(models.Manager):
-    
-    def notices_for(self, user, archived=False, unseen=None, on_site=None, sent=False):
+
+    def notices_for(self, user, archived=False, unseen=None, on_site=None,
+            sent=False):
         """
         returns Notice objects for the given user.
         
@@ -105,27 +110,27 @@ class NoticeManager(models.Manager):
             lookup_kwargs = {"recipient": user}
         qs = self.filter(**lookup_kwargs)
         if not archived:
-            self.filter(archived=archived)
+            qs = qs.filter(archived=archived)
         if unseen is not None:
             qs = qs.filter(unseen=unseen)
         if on_site is not None:
             qs = qs.filter(on_site=on_site)
-        return qs
-    
+        return qs.select_related('notice_type')
+
     def unseen_count_for(self, recipient, **kwargs):
         """
         returns the number of unseen notices for the given user but does not
         mark them seen
         """
         return self.notices_for(recipient, unseen=True, **kwargs).count()
-    
+
     def received(self, recipient, **kwargs):
         """
         returns notices the given recipient has recieved.
         """
         kwargs["sent"] = False
         return self.notices_for(recipient, **kwargs)
-    
+
     def sent(self, sender, **kwargs):
         """
         returns notices the given sender has sent
@@ -207,7 +212,8 @@ def create_notice_type(label, display, description, default=2, verbosity=1):
             if verbosity > 1:
                 print "Updated %s NoticeType" % label
     except NoticeType.DoesNotExist:
-        NoticeType(label=label, display=display, description=description, default=default).save()
+        NoticeType(label=label, display=display, description=description,
+                default=default).save()
         if verbosity > 1:
             print "Created %s NoticeType" % label
 
@@ -220,7 +226,8 @@ def get_notification_language(user):
     """
     if getattr(settings, "NOTIFICATION_LANGUAGE_MODULE", False):
         try:
-            app_label, model_name = settings.NOTIFICATION_LANGUAGE_MODULE.split(".")
+            app_label, model_name = (
+                    settings.NOTIFICATION_LANGUAGE_MODULE.split('.'))
             model = models.get_model(app_label, model_name)
             language_model = model._default_manager.get(user__id__exact=user.id)
             if hasattr(language_model, "language"):
@@ -229,26 +236,8 @@ def get_notification_language(user):
             raise LanguageStoreNotAvailable
     raise LanguageStoreNotAvailable
 
-
-def get_formatted_messages(formats, label, context):
-    """
-    Returns a dictionary with the format identifier as the key. The values are
-    are fully rendered templates with the given context.
-    """
-    format_templates = {}
-    for format in formats:
-        # conditionally turn off autoescaping for .txt extensions in format
-        if format.endswith(".txt"):
-            context.autoescape = False
-        else:
-            context.autoescape = True
-        format_templates[format] = render_to_string((
-            "notification/%s/%s" % (label, format),
-            "notification/%s" % format), context_instance=context)
-    return format_templates
-
-
-def send_now(users, label, extra_context=None, on_site=True, sender=None):
+def send_now(users, label, extra_context=None, on_site=True, sender=None,
+        **kwargs):
     """
     Creates a new notice.
     
@@ -258,33 +247,24 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
         "spam": "eggs",
         "foo": "bar",
     )
-    
+
     You can pass in on_site=False to prevent the notice emitted from being
     displayed on the site.
     """
     if extra_context is None:
         extra_context = {}
-    
-    notice_type = NoticeType.objects.get(label=label)
-    
-    protocol = getattr(settings, "DEFAULT_HTTP_PROTOCOL", "http")
+
+    try:
+        notice_type = NoticeType.objects.get(label=label)
+    except NoticeType.DoesNotExist:
+        raise NoticeType.DoesNotExist("'label' must be a label of an " +
+                                      "existing NoticeType")
+
+    protocol = getattr(settings, "DEFAULT_HTTP_PROTOCOL", "http") + "://"
     current_site = Site.objects.get_current()
-    
-    notices_url = u"%s://%s%s" % (
-        protocol,
-        unicode(current_site),
-        reverse("notification_notices"),
-    )
-    
+
     current_language = get_language()
-    
-    formats = (
-        "short.txt",
-        "full.txt",
-        "notice.html",
-        "full.html",
-    ) # TODO make formats configurable
-    
+
     for user in users:
         recipients = []
         # get user language for user from language store defined in
@@ -303,29 +283,15 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None):
             "recipient": user,
             "sender": sender,
             "notice": ugettext(notice_type.display),
-            "notices_url": notices_url,
+            "protocol": protocol,
             "current_site": current_site,
         })
         context.update(extra_context)
-        
-        # get prerendered format messages
-        messages = get_formatted_messages(formats, label, context)
-        
-        # Strip newlines from subject
-        subject = "".join(render_to_string("notification/email_subject.txt", {
-            "message": messages["short.txt"],
-        }, context).splitlines())
-        
-        body = render_to_string("notification/email_body.txt", {
-            "message": messages["full.txt"],
-        }, context)
-        
-        notice = Notice.objects.create(recipient=user, message=messages["notice.html"],
-            notice_type=notice_type, on_site=on_site, sender=sender)
-        if should_send(user, notice_type, "1") and user.email and user.is_active: # Email
-            recipients.append(user.email)
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
-    
+
+        for backend in backends:
+            backend.send(sender, user, notice_type, context, on_site=on_site,
+                    **kwargs)
+
     # reset environment to original language
     activate(current_language)
 
@@ -350,8 +316,8 @@ def send(*args, **kwargs):
         else:
             return send_now(*args, **kwargs)
 
-
-def queue(users, label, extra_context=None, on_site=True, sender=None):
+def queue(users, label, extra_context=None, on_site=True, sender=None,
+        **kwargs):
     """
     Queue the notification in NoticeQueueBatch. This allows for large amounts
     of user notifications to be deferred to a seperate process running outside
@@ -365,8 +331,15 @@ def queue(users, label, extra_context=None, on_site=True, sender=None):
         users = [user.pk for user in users]
     notices = []
     for user in users:
-        notices.append((user, label, extra_context, on_site, sender))
-    NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
+        notices.append((user, label, extra_context, on_site, sender, kwargs))
+    batch = NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode(
+            "base64"))
+    batch.save()
+    if 'djcelery' in settings.INSTALLED_APPS:
+        # TODO could also send a task per notice and drop the whole batch
+        # thing
+        from notification.tasks import emit_notice_batch
+        emit_notice_batch.delay(batch.id)
 
 
 class ObservedItemManager(models.Manager):
@@ -377,12 +350,14 @@ class ObservedItemManager(models.Manager):
         to be sent when a signal is emited.
         """
         content_type = ContentType.objects.get_for_model(observed)
-        observed_items = self.filter(content_type=content_type, object_id=observed.id, signal=signal)
+        observed_items = self.filter(content_type=content_type,
+                object_id=observed.id, signal=signal)
         return observed_items
     
     def get_for(self, observed, observer, signal):
         content_type = ContentType.objects.get_for_model(observed)
-        observed_item = self.get(content_type=content_type, object_id=observed.id, user=observer, signal=signal)
+        observed_item = self.get(content_type=content_type,
+                object_id=observed.id, user=observer, signal=signal)
         return observed_item
 
 
@@ -418,8 +393,9 @@ class ObservedItem(models.Model):
 def observe(observed, observer, notice_type_label, signal="post_save"):
     """
     Create a new ObservedItem.
-    
-    To be used by applications to register a user as an observer for some object.
+
+    To be used by applications to register a user as an observer for some
+    object.
     """
     notice_type = NoticeType.objects.get(label=notice_type_label)
     observed_item = ObservedItem(
@@ -437,8 +413,8 @@ def stop_observing(observed, observer, signal="post_save"):
     observed_item = ObservedItem.objects.get_for(observed, observer, signal)
     observed_item.delete()
 
-
-def send_observation_notices_for(observed, signal="post_save", extra_context=None):
+def send_observation_notices_for(observed, signal='post_save',
+        extra_context=None):
     """
     Send a notice for each registered user about an observed object.
     """
@@ -454,7 +430,8 @@ def is_observing(observed, observer, signal="post_save"):
     if isinstance(observer, AnonymousUser):
         return False
     try:
-        observed_items = ObservedItem.objects.get_for(observed, observer, signal)
+        observed_items = ObservedItem.objects.get_for(observed, observer,
+                signal)
         return True
     except ObservedItem.DoesNotExist:
         return False
