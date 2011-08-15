@@ -5,7 +5,7 @@ from notification.backends.base import NotificationBackend
 
 
 class EmailBackend(NotificationBackend):
-    sensitivity = 2
+    sensitivity = 3
     slug = u'email'
     display_name = u'E-mail'
     formats = ['short.txt', 'full.txt']
