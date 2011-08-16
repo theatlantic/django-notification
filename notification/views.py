@@ -119,7 +119,13 @@ def single(request, id, mark_seen=True):
             already.  Do nothing if ``False``.  Default: ``True``.
     """
     notice = get_object_or_404(Notice, id=id)
-    if request.user == notice.recipient:
+    # Sometimes the user extends django.contrib.auth.models.User, so we
+    # check if it has the user_ptr attribute
+    try:
+        user = getattr(request.user, "user_ptr", request.user)
+    except AttributeError:
+        user = request.user
+    if user == notice.recipient:
         if mark_seen and notice.unseen:
             notice.unseen = False
             notice.save()
