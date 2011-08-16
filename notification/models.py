@@ -1,5 +1,6 @@
 import datetime
 
+import base64
 try:
     import cPickle as pickle
 except ImportError:
@@ -138,6 +139,34 @@ class NoticeManager(models.Manager):
         kwargs["sent"] = True
         return self.notices_for(sender, **kwargs)
 
+class GzippedDictField(models.TextField):
+    """
+    Slightly different from a JSONField in the sense that the default
+    value is a dictionary.
+    """
+    __metaclass__ = models.SubfieldBase
+ 
+    def to_python(self, value):
+        if isinstance(value, basestring) and value:
+            value = pickle.loads(base64.b64decode(value).decode('zlib'))
+        elif not value:
+            return {}
+        return value
+
+    def get_prep_value(self, value):
+        if value is None: return
+        return base64.b64encode(pickle.dumps(value).encode('zlib'))
+ 
+    def value_to_string(self, obj):
+        value = self._get_val_from_obj(obj)
+        return self.get_db_prep_value(value)
+
+    def south_field_triple(self):
+        "Returns a suitable description of this field for South."
+        from south.modelsinspector import introspector
+        field_class = "django.db.models.fields.TextField"
+        args, kwargs = introspector(self)
+        return (field_class, args, kwargs)
 
 class Notice(models.Model):
     
@@ -149,6 +178,7 @@ class Notice(models.Model):
     unseen = models.BooleanField(_("unseen"), default=True)
     archived = models.BooleanField(_("archived"), default=False)
     on_site = models.BooleanField(_("on site"))
+    data = GzippedDictField(blank=True, null=True)
     
     objects = NoticeManager()
     
