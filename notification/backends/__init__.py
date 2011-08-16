@@ -36,7 +36,10 @@ def load_backend(backend):
     return cls()
 
 def get_backends():
-    from django.conf import settings
+    try:
+    	from django.conf import settings
+    except ImportError:
+        return set([])
     backends = []
     for backend in getattr(settings, 'NOTIFICATION_BACKENDS', []):
         backends.append(load_backend(backend))
