@@ -180,6 +180,11 @@ class Notice(models.Model):
     on_site = models.BooleanField(_("on site"))
     data = GzippedDictField(blank=True, null=True)
     
+    content_type = models.ForeignKey(ContentType, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    content_object = generic.GenericForeignKey('content_type', 'object_id')
+	
+    
     objects = NoticeManager()
     
     def __unicode__(self):

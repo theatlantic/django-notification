@@ -19,5 +19,6 @@ class WebBackend(NotificationBackend):
                 notice_type=notice_type,
                 on_site=on_site,
                 data=dict(chain(*([data.iteritems() for data in context]))),
-                sender=sender)
+                sender=sender,
+                **kwargs)
         return True
