@@ -9,7 +9,7 @@ from django.contrib.syndication.views import feed
 from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
 from notification.feeds import NoticeUserFeed
-from notification import backends
+from notification.backends import backends
 
 
 

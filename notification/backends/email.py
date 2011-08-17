@@ -21,7 +21,7 @@ class EmailBackend(NotificationBackend):
     def render_subject(self, label, context):
         # Strip newlines from subject
         return ''.join(self.render_message(label,
-                'notification/email_subject.txt', 'short.txt', context
+                'email_subject.txt', 'short.txt', context
                 ).splitlines())
 
     def send(self, sender, recipient, notice_type, context, *args, **kwargs):
@@ -33,7 +33,7 @@ class EmailBackend(NotificationBackend):
 
         EmailMessage(self.render_subject(notice_type.label, context),
                 self.render_message(notice_type.label,
-                        'notification/email_body.txt',
+                        'email_body.txt',
                         'full.txt',
                         context),
                 kwargs.get('from_email') or settings.DEFAULT_FROM_EMAIL,

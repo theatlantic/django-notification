@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 class FacebookBackend(NotificationBackend):
     sensitivity = 3
+    slug = u"facebook"
     def graph_api(self, user):
         """Return an instance of facebook.GraphAPI authorized with the `user`'s
         OAUth token.
@@ -54,7 +55,7 @@ class FacebookWallPostBackend(FacebookBackend):
             return False
 
         message = self.render_message(notice_type.label,
-                'notification/facebook/wall_post.txt', 'notice.html', context)
+                'wall_post.txt', 'notice.html', context)
         try:
             graph = self.graph_api(sender)
             graph.put_wall_post(unescape(message),

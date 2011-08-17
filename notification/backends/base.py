@@ -1,4 +1,6 @@
+from django.template import Context
 from django.template.loader import render_to_string
+from itertools import chain
 
 class NotificationBackend(object):
     slug = None
@@ -40,6 +42,10 @@ class NotificationBackend(object):
         raise NotImplementedError
 
     def render_message(self, label, template, format_template, context):
-        message = self.format_message(label, format_template, context)
-        return render_to_string(template,
-                {'message': message,}, context)
+        if 'message' not in context:
+            context = Context(
+                dict(chain(*([data.iteritems() for data in context])))
+            )
+            message = self.format_message(label, format_template, context)
+            context.update({'message': message})
+        return self.format_message(label, template, context)
