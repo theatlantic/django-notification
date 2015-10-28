@@ -106,9 +106,9 @@ class NoticeManager(models.Manager):
         If unseen=False, return only seen notices.
         """
         if sent:
-            lookup_kwargs = {"sender": user}
+            lookup_kwargs = {"sender__pk": user.pk}
         else:
-            lookup_kwargs = {"recipient": user}
+            lookup_kwargs = {"recipient__pk": user.pk}
         qs = self.filter(**lookup_kwargs)
         if not archived:
             qs = qs.filter(archived=archived)
