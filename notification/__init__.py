@@ -2,9 +2,9 @@ import pkg_resources
 import sys
 from types import ModuleType
 
-VERSION = (0, 2, 0, "a", 1) # following PEP 386
+VERSION = (0, 3, 0) # following PEP 386
 DEV_N = 4
-__version__ = '0.2a1.dev4'
+__version__ = '0.3.0'
 
 # import mapping to objects in other modules
 all_by_module = {
